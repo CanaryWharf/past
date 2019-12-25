@@ -1,0 +1,101 @@
+#!/bin/bash
+HELPSTRING="
+usage $0 -o ~/Desktop/$(date +%s).png
+"
+PIXELS_PER_STAGE=100
+NUMBER_OF_PICS=4
+
+OUTPUT=~/$(date +%Y-%m-%dT%H:%M:%S).png
+
+BACKGROUND_COLOR=white
+
+BORDER_THICKNESS=10
+
+while (( "$#" )); do case $1 in
+    -v | --version )
+        echo "past (Passive Aggressive Screenshot Tool) 0.1"
+        exit
+        ;;
+    -h | --help )
+        shift;
+        echo "$HELPSTRING"
+        exit
+        ;;
+    -o | --output )
+        shift;
+        OUTPUT="$1"
+        ;;
+    -n | --number-of-pics )
+        shift;
+        NUMBER_OF_PICS="$1"
+        ;;
+    -p | --pixels )
+        shift;
+        PIXELS_PER_STAGE="$1"
+        ;;
+    -c | --color )
+        shift;
+        BACKGROUND_COLOR="$1"
+        ;;
+    -b | --border )
+        shift;
+        BORDER_THICKNESS="$1"
+        ;;
+    -*|--*=)
+        echo "Error: Unsupported flag $1" >&2
+        exit 1
+        ;;
+esac; shift; done
+
+if [[ $NUMBER_OF_PICS -lt 1 ]]; then
+    echo "Invalid number of pictures"
+    exit 1;
+fi
+if [[ $PIXELS_PER_STAGE < 0 ]]; then
+    echo "Invalid pixels per stage"
+    exit 1;
+fi
+
+get_geo() {
+    echo "$3x$4+$1+$2"
+}
+
+# Get the coordinates
+COORDS=$(slop -f "%x %y %w %h")
+if [[ -z "$COORDS" ]]; then
+    exit 1;
+fi
+
+read -r X Y W H < <(echo $COORDS)
+
+IMAGE_FILES=()
+
+# Take the screenshots
+for ((i=0;i<$NUMBER_OF_PICS;i++));
+do
+    maim -u -g $(get_geo $X $Y $W $H) /tmp/past-tmp-screen-$i.png || exit 1
+    IMAGE_FILES+=(/tmp/past-tmp-screen-$i.png)
+    X=$(echo "$X - $PIXELS_PER_STAGE" | bc)
+    Y=$(echo "$Y - $PIXELS_PER_STAGE" | bc)
+    W=$(echo "$W + ($PIXELS_PER_STAGE * 2)" | bc)
+    H=$(echo "$H + ($PIXELS_PER_STAGE * 2)" | bc)
+done
+
+FINAL_DIMENSIONS="$W"x"$H"
+IMAGE_ARGS=()
+
+# Resize all images to be the same size
+for ((i=${#IMAGE_FILES[@]} - 1;i>=0;i--));
+do
+    IMAGE_ARGS+=(${IMAGE_FILES[$i]} "-resize $FINAL_DIMENSIONS")
+done
+
+# Create the final strip
+FINAL_COMMAND="convert ${IMAGE_ARGS[*]} -background $BACKGROUND_COLOR -splice 0x$BORDER_THICKNESS+0+0 -gravity Center -append +gravity -chop 10x0+0+0 $(realpath $OUTPUT)"
+$FINAL_COMMAND
+
+# Cleanup
+for i in "${IMAGE_FILES[@]}"
+do
+    rm $i
+done
