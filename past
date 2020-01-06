@@ -1,6 +1,12 @@
 #!/bin/bash
 HELPSTRING="
 usage $0 -o ~/Desktop/$(date +%s).png
+
+-o  --output            Output file
+-n  --number-of-pics    Number of pictures
+-p  --pixels            Number of pixels per stage
+-c --color              Color of borders
+-b --border             Thickness of borders
 "
 PIXELS_PER_STAGE=100
 NUMBER_OF_PICS=4
